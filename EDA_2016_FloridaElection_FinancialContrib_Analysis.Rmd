@@ -1,7 +1,7 @@
 ---
 title: "EDA_2016_FloridaElection_FinancialContrib_Analysis"
 author: "Sushant"
-date: "9 June 2017"
+date: "5 July 2017"
 output: html_document
 ---
 
@@ -25,7 +25,7 @@ I am aiming to have some insights on the following quesitons ->
 
 Let's Begin by adding basic packages for analysis and loading the data.
 
-```{r}
+```{r results = 'hide', echo=FALSE}
 #Loading Packages
 library(dplyr)
 library(ggplot2)
@@ -43,22 +43,23 @@ elec_data = elec_data[1:18]
 
 ## Dataset Analysis and cleaning
 In the DataSet there are 400K+ observations and 19 variables
-```{r}
+```{r, echo=FALSE}
 head(elec_data)
 ```
 Data is mostly catagorical with most of the features being text and number.
 There are certain varaibles like file_num, tran_id, memo_text which might not be usefull for our analysis, will consider removing them from data frame if needed.
 
 Exploring Columns
-```{r}
-print('Unique Values for election type')
+Unique Values for election type
+
+```{r, echo=FALSE}
 election_type <-group_by(elec_data,election_tp)
 summarise(election_type,n())
 ```
 We can see that moslt of the contributions recorded are for Primaries of 2016 eleciton with around 150k of them for general election.
 We'll filter the data based on this to actually see different data points for both the primaries and general election if needed.
 Checking out the number of cancidates that received contributions in the entire election, we'll remove those candidates that received less than 1000 contirbutions.
-```{r}
+```{r, echo=FALSE}
 elec_data.cand_by_contrib <- elec_data %>%
   group_by(cand_nm)%>%
   filter(n() > 999)
@@ -71,17 +72,18 @@ summarise(candidates,n())
 There is no column 'Party' in the data set to identify to which party did the candidate belong to.
 
 Adding a new column 'Party' to dataset.
-```{r}
+```{r, echo=FALSE}
 party = within (elec_data.cand_by_contrib,
   {
-  party = ifelse(cand_nm %in% c('Clinton, Hillary Rodham','Sanders, Bernard'), 'Democrat','Republican')
+  party = ifelse(cand_nm %in% 
+  c('Clinton, Hillary Rodham','Sanders, Bernard'), 'Democrat','Republican')
   }
 )
 head(elec_data.cand_by_contrib)
 elec_data_exp <- party
 ```
 Zip codes are huge numbers, extracting first 5 digits for standardization
-```{r}
+```{r, echo=FALSE}
 elec_data_exp <- elec_data_exp %>%
   mutate(contbr_zip = substr(contbr_zip,1,5))
 head(elec_data_exp)
@@ -91,18 +93,22 @@ Analysing some data points related to date of contribution, party to which contr
 
 ### Let's start with date of contribution
 Starting with Date of Contribution or to get more meaningfull numbers, we'll see how many days before day of election (8th Nov 2016)
-```{r}
-elec_data_exp$days_from_election = as.integer((as.Date('08-Nov-16',format = '%d-%b-%y')) - (as.Date(elec_data_exp$contb_receipt_dt,format = '%d-%b-%y')))
+```{r, echo=FALSE}
+final_elec_date = as.Date('08-Nov-16',format = '%d-%b-%y')
+elec_data_exp$days_from_election = 
+  as.Date(elec_data_exp$contb_receipt_dt,format = '%d-%b-%y')
+elec_data_exp$days_from_election = 
+  as.integer(final_elec_date - elec_data_exp$days_from_election)
 summary(elec_data_exp$days_from_election)
 ```
 We can see that Most people donated ~5Months before the election, just after the primaries, when the campaigning was in full swing. We are getting the minimum value as -53, it's most probably an outlier, someone donated after the election was over.
 
 Let's see the trends for date of contrubtion
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x = days_from_election), data = elec_data_exp) + 
   geom_histogram(binwidth = 10)+
   xlim(0,500)+
-  labs(title = "Contribution with respect to days from election",x = "Days from Eleciton", y = "Count")+
+  labs(title = "Contribution with respect to days",x = "Days from Eleciton", y = "Count")+
   theme(plot.title = element_text(hjust = 0.5),legend.position="none")
 ```
 From the plot we can see that while there was some hike in contributions around the primaries (244-300 days before election).Many people donated just around 100 day martk when the election campaign was going on, there's a spike in the contributions just before election day, this can be attributed to final surge of campaigning being done by both the candidates.
@@ -112,7 +118,7 @@ The trend can also been seen, as just before the primaries, there was a surge of
 ### Let's now see how the contributions were candidate wise and party wise
 
 First checking the total contributions for both the major parties
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x = party),data = group_by(elec_data_exp,party))+
         geom_histogram(stat = 'count', fill = c("Blue","Red"))+
   labs(title = "Party wise contribution",x = "Party", y = "Count")+
@@ -123,35 +129,73 @@ We'll asses the value of these contributions in the next section
 
 ### Checking the Contributions per candidate
 
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x=cand_nm),data = group_by(elec_data_exp,cand_nm))+
   geom_bar()+
   labs(title = "Contribution per Candiate",x = "Candiate", y = "Count")+
+  coord_flip()+
   theme(plot.title = element_text(hjust = 0.5),legend.position="none")
 ```
-Surprisingly hillary Clinto received the most number of contributions in the state of Florida. From the republican side Jeb Bush and Marco Rubio were Local candidates and even they received less contribution.
+Surprisingly hillary Clinton received the most number of contributions in the state of Florida. From the republican side Jeb Bush and Marco Rubio were Local candidates and even they received less contribution.
 
 This might be as Jeb Bush dropped out of the race before the Florida Primary and Marko Rubio did not emerge as Republican candidate at the end of primaries.
+### Contribution percentage per candidate
 
-### Contributions per Occupation
-```{r}
-elec_campaign_occup_contrib <- elec_data_exp%>%
-group_by(contbr_occupation,party)%>%
-summarise(cand_funds = sum(contb_receipt_amt))
-ggplot(aes(x = contbr_occupation),data = elec_campaign_occup_contrib)
+Let's see how the contribution for each candidate was as a portion of the all the number of contributions. Also let's analyse how it was different for both Primaries and General Election.
 
-    ggplot(aes(x = contbr_occupation,fill = ifelse(party == 'Democrat','Red','Blue')), data = subset(elec_campaign_occup_contrib,elec_campaign_occup_contrib$cand_funds>10000)) + 
-  geom_histogram(binwidth = 10,stat = 'count')+
-  labs(title = "Contribution with Occupation",x = "Days from Eleciton", y = "Count")+
-  theme(plot.title = element_text(hjust = 0.5),legend.position="none")
+Starting with Primaries (Filtering out candiates who had really less contributions)
+```{r, echo=FALSE}
+elect_data_cand_perc_prim <-  elec_data_exp %>%
+  filter(election_tp == 'P2016')%>%
+  group_by(cand_nm) %>%
+  summarise (n = n()) %>%
+  mutate(freq = (n / sum(n))*100)
+
+elect_data_cand_perc_prim <- filter(elect_data_cand_perc_prim,n >10000)
+ggplot(elect_data_cand_perc_prim, aes(x="", y=freq, fill=cand_nm))+
+geom_bar(width = 1, stat = "identity")+
+  coord_polar("y",start=0)+
+  labs(title = "Contribution distribution by candidates(Primaries)", y = "Count")+
+  theme(plot.title = element_text(hjust = 0.5))+
+       guides(fill = guide_legend(title = "Candidate"))
 ```
-There are a huge number of occupations in the dataset, it is tough draw any conclusions from it
+
+We can see that Hillary Clinton and Bernie Sanders had most of the contributors, with Trump from the Republican side having maximum contribution
+
+Let's see how it changed for the general election, where only 2 candiates were there
+
+
+```{r, echo=FALSE}
+elect_data_cand_perc_gen <-  elec_data_exp %>%
+  filter(election_tp == 'G2016')%>%
+  group_by(cand_nm) %>%
+  summarise (n = n()) %>%
+  mutate(freq = (n / sum(n))*100)
+
+
+ggplot(elect_data_cand_perc_gen, aes(x="", y=freq, fill=cand_nm))+
+geom_bar(width = 1, stat = "identity")+
+  coord_polar("y",start=0)+
+  labs(title = "Contribution distribution by candidates(General)", y = "Count")+
+  theme(plot.title = element_text(hjust = 0.5))+
+       guides(fill = guide_legend(title = "Candidate"))
+```
+
+It seems Hillary Clinton had overwhilmigly more contributors that Donald Trump in the General Election.
+
+It's interesting to note that even for General Election people contributed to other candidates which had dropped out of the race.
+
+Another interesting point is that even though Hillary Clinton had more number of contributors, she ended up losing in the Florida Elections
+
+
+
+
 
 
 ### In which election was more contributions General/Primaries
 Lets see in which of the election Primarires or General there were more number of contributions
 
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x = election_tp),data = group_by(elec_data_exp,election_tp))+
         geom_histogram(stat = 'count')+
   labs(title = "Contribution for election",x = "Election", y = "Count")+
@@ -162,7 +206,7 @@ Some NA Data can be considered as outlier.
 But we can clearly see that contribution for primaries were much more compared to General Election
 Let's see the same analysis by seprating the democrats and republicans.
 
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x = election_tp),data = group_by(elec_data_exp,election_tp))+
         geom_histogram(stat = 'count')+
   labs(title = "Contribution for election",x = "Election", y = "Count")+
@@ -180,7 +224,7 @@ Let's do further analysis on election data set.
 ### Amount of contributions.
 Let's see how much did each candidate received.
 
-```{r}
+```{r, echo=FALSE}
 elec_campaign_total_contrib <- elec_data_exp%>%
   group_by(cand_nm)%>%
   summarise(cand_funds = (sum(contb_receipt_amt))/100000)
@@ -197,7 +241,7 @@ We can clearly see that Donald Trump from Republican side and hillary Clinton fr
 
 
 
-```{r}
+```{r, echo=FALSE}
 elec_campaign_avg_contrib <- elec_data_exp%>%
   group_by(cand_nm,party)%>%
   summarise(avg_fund = (mean(contb_receipt_amt)))
@@ -205,7 +249,7 @@ head(elec_campaign_avg_contrib)
 
 ggplot(aes(x = cand_nm, y = avg_fund,fill = ifelse(party == 'Democrat','Red','Blue')), data = elec_campaign_avg_contrib)+
   geom_histogram(stat = 'identity')+
-  labs(title = "Average Contribution per Candiate",x = "Candiate", y = "Average Contribution")+
+  labs(title = "Average Contribution per Candidate",x = "Candiate", y = "Average Contribution")+
   theme(plot.title = element_text(hjust = 0.5),legend.position="none")
 
 ```
@@ -218,7 +262,7 @@ It is looking more and more like it is the number of contributions that count ra
 #### Contribution amount by party
 How did the contribution amount varied with party -
 having binwidth as 10 and limiting the amount to <1000 as that were most of the contributions
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x=contb_receipt_amt,fill = ifelse(party == 'Democrat','Red','Blue')),data = subset(elec_data_exp,contb_receipt_amt >0))+
   geom_histogram(binwidth = 10)+
   xlim(0,1000)+
@@ -227,7 +271,7 @@ ggplot(aes(x=contb_receipt_amt,fill = ifelse(party == 'Democrat','Red','Blue')),
   theme(legend.position="none")
 ```
 having binwidth as 5 and limiting the amount to <300 to see some variations party wise
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x=contb_receipt_amt,fill = ifelse(party == 'Democrat','Red','Blue')),data = subset(elec_data_exp,contb_receipt_amt >0))+
   geom_histogram(binwidth = 5, alplha = 1/20)+
   xlim(0,300)+
@@ -239,7 +283,7 @@ ggplot(aes(x=contb_receipt_amt,fill = ifelse(party == 'Democrat','Red','Blue')),
 We can see that the contribution amount was generally higher for republicans than it was for democrats 
 
 Represendintg the same in box plot, to see if we can gather some more insights
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x=party,y=contb_receipt_amt),data = subset(elec_data_exp,contb_receipt_amt >0))+
   geom_boxplot(notch=TRUE)+
   labs(title = "Contributions for each party",x = "Party", y = "Contribution Amount")+
@@ -250,7 +294,7 @@ ggplot(aes(x=party,y=contb_receipt_amt),data = subset(elec_data_exp,contb_receip
 The Median amount for republicans is higher than that of democrats.
 
 Let's see if this holds tru if only consider the general election.
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x=party,y=contb_receipt_amt),data = subset(elec_data_exp,contb_receipt_amt >0 & election_tp == 'G2016'))+
   geom_boxplot(notch=TRUE)+
   labs(title = "Contributions for each party(General Election)",x = "Party", y = "Contribution Amount")+
@@ -266,14 +310,15 @@ This is telling as final result for the state of Florida was Donald Trump winnin
 Florida being a swing state, played an important role in the election outcome.
 ### How was the contribution distributed for candidates when measuring with days from election
 
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x = days_from_election,group = cand_nm,color = cand_nm), data = elec_data_exp)+
   geom_line(aes(fill=..count..), stat="bin", binwidth=10)+
   xlab('Days from Election')+
   ylab('Number of Contributions')+
   labs(title = "Contribution per candidate with time",color = "Candidate")+
   theme(plot.title = element_text(hjust = 0.5))+
-  scale_y_sqrt()
+  scale_y_sqrt(breaks = seq(0,20000,2000))+
+  scale_x_continuous(limit = c(0,600),breaks = seq(0,600,100))
 ```
 We can see that arount 300 days from election, around the priamries, each candidate had jump in contributions.
 
@@ -281,19 +326,46 @@ Similarly towards the end, Donald Trump and Hillary Clinton had a jump in contri
 
 ## Multivariate Analysis
 
+
+### Contributions per Occupation
+Let's see if we can draw any conclusion from what were the occupations of the highest contributors
+```{r, echo=FALSE}
+elec_campaign_occup_contrib <- elec_data_exp%>%
+  filter(contbr_occupation != 'INFORMATION REQUESTED' & contbr_occupation != 'INFORMATION REQUESTED PER BEST EFFORTS')%>%
+group_by(contbr_occupation,party)%>%
+summarise(cand_funds = sum(contb_receipt_amt))
+
+elec_campaign_occup_contrib <- filter(elec_campaign_occup_contrib,cand_funds > 100000)
+
+ggplot(aes(x = party,y = contbr_occupation), data = elec_campaign_occup_contrib)+
+  geom_point(aes(size = cand_funds))+
+  scale_size_continuous()+
+  ggtitle("Contributions per Occupation and Party")+
+  labs(y = 'Occupations', x = "Party")+
+  theme(legend.position = "none")
+```
+
+
+We can see that for both parties, Retires had the maximum contribution, particularly for Republicans a lot of the Contributions from Retired Individuals
+
+We can even see how the range of contributors varied for Republicans and Democrats.
+
+While for Republicans majority of donation came from Retires, homemakes, contractors, business.
+For Democrats apart form Retires, Lot of Not Employed people donated
 ### Cumilitive Contribution by candidate with Date
 Lets analyse the contribution distribution for different parties
-```{r}
-ggplot(aes(x = days_from_election,y = cumsum(contb_receipt_amt),color = cand_nm), data = subset(elec_data_exp,elec_data_exp$days_from_election %in% c(10,50,80,100) ))+
+```{r, echo=FALSE}
+ggplot(aes(x = days_from_election,y = cumsum(contb_receipt_amt),color = cand_nm), data = subset(elec_data_exp,elec_data_exp$days_from_election %in% c(10,30,50,70,90,110) ))+
   geom_point()+
   labs(title = "Cumilitive Contribution per candidate with time",color = "Candidate", x = 'Days from Election',y = 'Cumilitive Sum')+
-  scale_y_sqrt()
+  scale_y_sqrt()+
+  scale_x_continuous(breaks = seq(10,120,20))
 ```
 
 
 ### Comparison of contributions Democrat/Republican and how it varied over time
 Comparison of average contribution to Democrat and Republican month on month basis
-```{r}
+```{r, echo=FALSE}
 elec_party_trend <- elec_data_exp%>%
               group_by(party,gr = cut(days_from_election, breaks = seq(0,350,by = 30)))%>%
           summarise(party_funds = mean(contb_receipt_amt))%>%
@@ -313,7 +385,7 @@ The one negetive point in the representation can be considered an outlier, as it
 ### Analysing from which city the maximum contributions came from.
 Now We'll see how much contribution came from different cities
 First lets plot where the most amount of contribution came from with total funds from that city > 50000
-```{r}
+```{r, echo=FALSE}
 #plot based on city
 
 elec_campaign_city_contrib <- elec_data_exp%>%
@@ -327,12 +399,12 @@ ggplot(aes(x=contbr_city,y=cand_funds),data = subset(elec_campaign_city_contrib,
   scale_y_log10()
 ```
 Lots of varaiation from city to city
-```{r}
+```{r, echo=FALSE}
 elec_campaign_city_contrib[elec_campaign_city_contrib$cand_funds == max(elec_campaign_city_contrib$cand_funds),]
 ```
 We can see the top contributor is Miami with total funds being 2,238,152
 ### Top 1% of contributions from which cities?
-```{r}
+```{r, echo=FALSE}
 ggplot(aes(x = contbr_city,y=cand_funds,fill = ifelse(party == 'Democrat','Red','Blue')),data = subset(elec_campaign_city_contrib,cand_funds > quantile(cand_funds, prob = 0.99)))+
   geom_histogram(stat = 'identity', alplha = 1/20)+
   labs(title = "Top 1% Overall Contributions from Cities",x = "Contribution Amount", y = "Count")+
@@ -346,7 +418,7 @@ When analysing top 1% contributor, we see much less variation.
 
 For visualizing th maps we'll leverage the maps package
 For using maps package we need to convert the zipcodes to lat/long, using 'zipcode' package
-```{r}
+```{r, echo=FALSE}
 library(maps)
 
 florida_data <- ggplot()+geom_polygon(aes(x=long, y=lat, group = group),data = subset(map_data("state"), region %in% c('florida')), color = "white")
@@ -368,7 +440,7 @@ florida_data_rep
 We can see that the contribution are fairly well divided and coming from all over the State.
 
 Now lets see thi candidate wise, From where did which candidate got maximum contribution
-```{r}
+```{r, echo=FALSE}
 elec_data_cand_florida <- florida_data + 
             geom_point(data = subset(elec_data_exp_locn, zip > 30000 & zip <40000),aes(x=longitude, y=latitude,color = cand_nm))
 
@@ -379,7 +451,7 @@ elec_data_cand_florida <- florida_data +
 Looks like Donald Trump Got contribution from everywhere in the State.
 
 Let's divide this data set further only for General Election and compare democrats and republicans
-```{r}
+```{r, echo=FALSE}
 elec_data_party_florida <- florida_data + 
             geom_point(data = subset(elec_data_exp_locn, zip > 30000 & zip <40000 & election_tp == 'G2016' ),aes(x=longitude, y=latitude,color = party))
 
@@ -395,7 +467,7 @@ Although for party's the contributions were more or less evenly spread out, It l
 In this section, we brush up the best looking and most informative plots we discovered above.
 
 ### Plot One - Donation distribution by candidate
-```{r}
+```{r, echo=FALSE}
 elect_data_cand_perc <-  elec_data_exp %>%
   group_by(cand_nm) %>%
   summarise (n = n()) %>%
@@ -414,7 +486,7 @@ Most donation went to few candidates, This shows the  distribution of contributi
 
 ### Plot Two - Mapping Dem/Rep by Area
 
-```{r}
+```{r, echo=FALSE}
 florida_data_party <- florida_data+ 
             geom_point(data = subset(elec_data_exp_locn, zip > 30000 & zip <40000),aes(x=longitude, y=latitude,color = party))
 florida_data_party+
@@ -425,7 +497,7 @@ florida_data_party+
 When plotting the entire ampaign contribution data for Demorats and republicans.
 We can see that while contribuion for democrats were evenly distributed. For Republicans the the bulk of the contribution came from specific areas. 
 ### Plot Three - Contribution to candidate over time.
-```{r}
+```{r, echo=FALSE}
 elec_party_trend_cand <- elec_data_exp%>%
               group_by(cand_nm,gr = cut(days_from_election, breaks = seq(0,350,by = 30)))%>%
           summarise(cand_funds = mean(contb_receipt_amt))%>%
@@ -433,7 +505,8 @@ elec_party_trend_cand <- elec_data_exp%>%
 
 ggplot(aes(x=gr,y=cand_funds,group=cand_nm,color = cand_nm), data = elec_party_trend_cand)+
   geom_line()+
-  labs(title = "Average contribution for Candidates over time",x = "Avg Contribution Amount", y = "Months Before Election",color = "Candidate")
+  labs(title = "Average contribution for Candidates over time",x = "Avg Contribution Amount", y = "Months Before Election",color = "Candidate")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 ### Decsription Three
 The plot indicates how the Average contributions to candidates varied over the 1 year before the election.
@@ -464,8 +537,12 @@ I would love to club this data with Florida Election Watch and then draw even mo
 
 ## References
 1.http://www.datacarpentry.org/dc_zurich/R-ecology/05-visualisation-ggplot2.html
+
 2. R For Data Science - http://r4ds.had.co.nz/explore-intro.html
+
 3.https://uchicagoconsulting.wordpress.com/2011/04/18/how-to-draw-good-looking-maps-in-r/
+
 4. https://www.trulia.com/blog/tech/the-choroplethr-package-for-r/
+
 5. https://stackoverflow.com/questions/41338757/adding-percentage-labels-on-pie-chart-in-r
 
