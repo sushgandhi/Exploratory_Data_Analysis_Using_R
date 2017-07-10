@@ -1,0 +1,1 @@
+install.packages(c("dplyr","ggplot2","tidyr","plyr","reshape2","RODBC","RMySQL","RSQLite","gtable","stringr","car","randomForest","shiny","ggmap","data.table","jsonlite","httr","scales","RCurl","knitr","manipulate","ggthemes","gridExtra","maps","zipcode"))
